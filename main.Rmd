@@ -1,0 +1,214 @@
+---
+title: "STAT 240 Project"
+output: html_document
+---
+
+```{r, echo=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, message = FALSE,
+  warning = FALSE, error = TRUE, fig.height = 3
+)
+library(tidyverse)
+library(lubridate)
+library(kableExtra)
+library(broman)
+source("../../scripts/viridis.R")
+source("../../scripts/ggprob.R")
+theme_set(theme_minimal())
+```
+
+
+## Introduction
+
+Kidney disease and heart disease are two major health problems that affect millions of people worldwide. Both conditions are known to have a significant impact on an individua's quality of life and can lead to serious complications if not managed properly. The relationship between these two diseases has been the subject of numerous studies in the past, but there are no clear studies proving its association. This report aims to examine the proportion of individuals with kidney disease among those who have heart disease and compare it to the proportion among those who do not have heart disease. Understanding this relationship could inform research and healthcare strategies to better tackle these diseases.
+
+The main question driving this analysis is: "Does the proportion of having kidney disease among people of age 40-59 who have heart disease different from the people who do not have heart disease?" By addressing this question, we seek to shed light on the potential association between heart disease and kidney disease and explore whether having heart disease increases the risk of developing kidney disease.
+
+
+## Background
+
+Heart disease and kidney disease are two of the most prevalent chronic diseases in the United States, with an estimated 30 million Americans living with chronic kidney disease and over 100 million adults living with some form of heart disease^[https://www.cdc.gov/heartdisease/facts.htm]. Both diseases share several common risk factors. Therefore, understanding the proportion of individuals with kidney disease among those with and without heart disease can provide valuable insights into the co-occurrence of these two chronic diseases.
+
+The dataset^[https://www.kaggle.com/datasets/kamilpytlak/personal-key-indicators-of-heart-disease] originates from the CDC's Behavioral Risk Factor Surveillance System (BRFSS)^[https://www.cdc.gov/brfss/annual_data/annual_2020.html], an annual telephone survey collecting data on the health status of U.S. residents since 1984. It covers all 50 states, the District of Columbia, and three U.S. territories, with 401,958 records. Most columns represent health-related questions asked to respondents, including whether the person has heart disease, kidney disease, and/or any other disease. We use this dataset to examine the proportions because the dataset includes samples of people and their status of whether having heart disease and/or kidney disease. We will focus on kidney disease and heart disease among the age group 40-59 in this dataset.
+
+The dataset contains an anomaly where there are significantly more individuals without heart disease than those with heart disease. However, this is not unexpected given that the prevalence of heart disease is lower in the general population. This naturally leads to a smaller number of individuals with heart disease in the dataset. Despite the anomaly, we can still conduct the analysis as long as the sample size is large enough for this study.
+
+The objective of the report is to investigate the proportion of individuals with kidney disease in those with and without heart disease. Additionally, the report aims to determine if there is statistical evidence to support a difference in the proportion of individuals with kidney disease across different age groups. Stack bar graphs will also be provided to aid in visualizing the distribution of data.
+
+
+
+## Analysis
+
+We will conduct a Hypothesis test here to determine whether the proportion of individuals with kidney disease in those with and without heart disease are the same in this section.
+
+#### Gathering Main Data
+
+We will start with gathering the main data from the dataset:
+
+```{r, echo=FALSE}
+heart_data_2020 <- read_csv("heart_2020_cleaned.csv")
+# Let us first extract the data that we need. Here, we are going to take only the "HeartDisease" column and the "KidneyDisease" column.
+
+# Defining count which gives us the total number of either with or without heart or kidney disease
+heart_kidney_data <- heart_data_2020 %>%
+  filter(AgeCategory %in% c("40-44", "45-49", "50-54", "55-59")) %>%
+  group_by(HeartDisease, KidneyDisease) %>%
+  summarize(Count = n()) %>%
+  group_by(HeartDisease) %>%
+  mutate(Total = sum(Count), Proportions = Count / sum(Count)) %>%
+  ungroup()
+heart_kidney_data_filtered <- heart_kidney_data %>%
+  filter(KidneyDisease == "Yes")
+
+heart_kidney_data_filtered
+```
+
+#### Graphing Data
+
+The following graph provides a view of the proportions of people who have Kidney Disease among people who have heart disease or not among the age group 40-59.
+
+```{r, echo=FALSE}
+ggplot(heart_kidney_data, aes(x = HeartDisease, y = Proportions, fill = KidneyDisease)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Proportion of People with Kidney Disease by Heart Disease Status", x = "Heart Disease", y = "Proportion", fill = "Kidney Disease") +
+  theme_minimal()
+```
+
+This shows that there seems to be a higher percentage of people having a Kidney Disease among people who have heart disease (Right), as compared to the people who do not have a Heart Disease (Left). We will explore more about the accuracy of this proportion by conducting a hypothesis test.
+
+### Hypothesis Test
+
+#### Statistical Model
+
+We will use the statistical model that:
+
+let $X_1$ be the number of people who have kidney disease and not heart diseases
+
+let $X_2$ be the number of people who have kidney disease and heart diseases
+
+$p_1$ is the probability of people who have kidney disease and not heart diseases 
+
+$p_2$ is the probability of people who have kidney disease and heart diseases  
+
+$X1 | p1 \sim Binomial(93121, p1)$
+
+$X2 | p2 \sim Binomial(4815, p2)$
+
+#### Hypothesis
+$H_0$: $p_1$ = $p_2$
+
+There are **no** differences in the proportion of people who have kidney disease among people who have heart disease and people not having heart disease aged 40-59
+
+$H_a$: $p_1 \neq p_2$
+
+There are differences in the proportion of people who have kidney disease among people who have heart disease and people not having heart disease of age 40-59
+
+#### Test Statistic
+We find the test Statistic (The difference in proportion of the two samples) is:
+
+```{r, echo=FALSE}
+# Group A with Heart Disease n = 4815, kidney disease = 517; prop = 0.10737279
+# Group B without Heart Disease n = 93121, kidney disease = 1998; prop = 0.02145596
+# Let us first extract the sampels that we need
+
+
+# Let us find n (count) and p (proportions) from our filtered data set
+# First for Group A without Heart Disease
+n1 <- heart_kidney_data_filtered$Total[1]
+x1 <- heart_kidney_data_filtered$Count[1]
+# Next, for Gorup B with Heart Disease
+n2 <- heart_kidney_data_filtered$Total[2]
+x2 <- heart_kidney_data_filtered$Count[2]
+
+p0 <- (x1 + x2) / (n1 + n2)
+test_stat <- (x1 / n1) - (x2 / n2)
+
+abs(test_stat)
+```
+
+#### Confidence Interval
+We will also construct a 95% confidence interval on the difference in the proportion of people who have kidney disease among people who have heart disease or not of age 40-59
+
+```{r, echo=FALSE}
+ntilde1 <- n1 + 2
+ntilde2 <- n2 + 2
+ptilde1 <- (x1 + 1) / ntilde1
+ptilde2 <- (x2 + 1) / ntilde2
+
+# Now use the formula for low and high values (95% confidence interval)
+estimate <- ptilde1 - ptilde2
+se1 <- sqrt(ptilde1 * (1 - ptilde1) / ntilde1)
+se2 <- sqrt(ptilde2 * (1 - ptilde2) / ntilde2)
+se <- sqrt(se1^2 + se2^2)
+z <- qnorm(0.975)
+low <- estimate - z * se
+high <- estimate + z * se
+ci <- c(low, high)
+ci
+```
+We are 95% confident that the difference in the proportion of people who have kidney disease among people who have a heart disease or not is (0.077,0.095).
+
+
+The following graph demonstrates the estimated distribution of the difference in the proportion of the two groups of people, where the unshaded area represents where the 95% confidence interval covers. 
+```{r, echo=FALSE}
+gnorm(mu = estimate, sigma = se, scale = TRUE) +
+  geom_norm_fill(mu = estimate, sigma = se, a = high) +
+  geom_norm_fill(mu = estimate, sigma = se, b = low) +
+  ggtitle("Confidence Interval of Difference in Proportion")
+```
+
+#### P Value
+Assuming two proportions are the same, we get the combined proportion:
+```{r, echo=FALSE}
+p0
+```
+
+We found the p value of the test statistic is:
+```{r, echo=FALSE}
+# We already have n1, n2, x1, x2 values from before
+se <- sqrt(p0 * (1 - p0) / n1 + p0 * (1 - p0) / n2)
+z <- test_stat / se
+pvalue_z <- 2 * pnorm(-abs(z))
+pvalue_z
+```
+
+#### Summarizing results
+```{r, echo=FALSE}
+hear_data_summary <- tibble(se, pvalue_z)
+hear_data_summary
+
+# prop.test(x = c(x1, x2), n = c(n1, n2))
+```
+
+> There is very strong evidence that people without heart disease are less likely to have kidney than poeple with heart disease. (p=1.08e-295, z-test for difference in proportions).
+
+## Discussion
+
+### Interpretation
+
+The results of this study suggest a clear link between heart disease and kidney disease. The finding that people with heart disease have a higher rate of kidney disease compared to those without heart disease disproves our null hypothesis that having heart disease does not increase the risk of developing kidney disease.
+
+The reason that we are conducting a P-test, to reveal the significance of the data, and find the 95% confidence interval is to indeed show that there is a difference in proportion for the population we are looking at. Since our P-test reveals that there is strong evidence, we have significant evidence to reject the null hypothesis that there is no difference in the proportion.
+
+It is important to note that this study only examined the proportion of individuals with kidney disease among those with and without heart disease and did not investigate the underlying mechanisms of the association. Further research is needed to explore the potential biological, genetic, and environmental factors that may contribute to this association. Additionally, this study did not account for other potential confounding factors that may influence the development of heart disease and kidney disease, such as lifestyle factors, medication use, and comorbid conditions.
+
+
+
+### Assumptions
+We assume that the two distributions of two groups of people having kidney disease are all binomial distributions, because we have a fixed number of trials and the outcome can only be "have" or "have not" kidney disease, However:
+
+- We assume that all individuals in this the data that we collect are independent; every observation that is collected is independent. No value collected from one survey should influence the other. This is most definitely true as one person who has a heart or kidney disease does not necessarily mean that another person would. Hence, it is reasonable to make this assumption when running statistical tests on our data.
+- We assume that all individuals in our data set who have a heart disease, have an equal chance of having a kidney disease. However, this is not necessarily true. Some individuals might have a higher chance of getting kidney disease, even though they have heart disease. For example, an individual who has a heart disease might have kidney diseases running in the family. This means that they have a higher probability of having kidney disease, as compared to a healthier heart patient. This assumption most definitely could have a minor impact on the difference in proportions that we have found in this report.
+
+### Shortcomings
+There are potential shortcomings in this analysis that would be possible to affect the final result. For all people in the dataset, the person might also have another disease that might affect the chances of having kidney disease. It is reasonable that the other health condition of the person would affect the final outcome. However, this effect is ignored because the purpose of this project is to examine the proportion of people having kidney disease and heart disease. The other anomaly is that the data was collected by a telephone survey, which might cause bias due to people who are healthier (ie, people who do not have any disease in the dataset) might be too busy to answer the phone compare to people who are less healthier.
+
+
+### New Questions
+Some of the possible further questions that could be conducted for further research are:
+
+- What are the potential biological and environmental factors that contribute to the association between heart disease and kidney disease? 
+- How can this knowledge be used to develop targeted interventions to prevent and manage these conditions?
+
+### Conclusion
+In conclusion, this report asserts that there is a significant difference in the proportion of kidney disease among individuals with heart disease compared to those without heart disease among the age group 40-59, indicating that the presence of heart disease may be an important factor in the development of kidney disease.
